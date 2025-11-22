@@ -1,0 +1,6 @@
+tensorflow
+pandas
+numpy>=1.20.0
+scikit-learn
+imbalanced-learn
+xgboost

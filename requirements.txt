@@ -1,0 +1,14 @@
+# 資料處理和分析
+pandas>=1.0.0
+numpy>=1.18.0
+
+# 機器學習模型 (梯度提升機)
+xgboost>=1.0.0
+
+# Scikit-learn (用於模型選擇和預處理，KFold 和 LabelEncoder)
+scikit-learn>=0.23.0
+scipy>=1.5.0
+
+# Progress Bar
+tqdm>=4.50.0
+imbalanced-learn>=0.10.0
