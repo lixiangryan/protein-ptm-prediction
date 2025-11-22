@@ -92,8 +92,6 @@
 
 ## 4. 未來工作 (Future Work)
 
-在完成當前的 `BalancedBaggingClassifier` 實驗後，我們計畫進行以下更進階的優化。
-
 ### 4.1. (已完成) 進階生物特徵工程
 此階段任務已成功完成，透過為模型引入生物學領域知識，極大地提升了性能。
 - **策略**：除了 k-mer 頻率，我們計算並引入了三組具有明確生物學意義的特徵。
@@ -102,7 +100,7 @@
 - **第三步：理化性質 (Physicochemical Properties)**。在加入平均疏水性、分子量等特徵後，模型性能達到新高，**平均 ROC AUC 從 0.734 提升至 0.746**。
 - **結論**：特徵工程是本次優化中最成功的環節，證明了結合領域知識的重要性。
 
-### 4.2. 探索深度學習模型 (已完成第一步)
+### 4.2. 探索深度學習模型 (已完成第一步 - 1D-CNN)
 此階段旨在利用深度學習強大的特徵自動提取能力，探索性能的上限。
 
 - **已完成：一維卷積神經網路 (1D-CNN)**
@@ -112,3 +110,25 @@
 - **下一步計畫：Transformer 架構**
     - **策略**：實現一個基於 Transformer 的模型。Transformer 的核心是「自註意力機制 (Self-Attention)」，它能夠捕捉序列中任意兩個胺基酸之間的長距離依賴關係，這是 CNN 的弱點。
     - **目標**：驗證 Transformer 模型是否能透過其對全局依賴性的強大建模能力，進一步提升預測性能，特別是對於那些可能受遠端殘基影響的修飾位點。這代表了當前序列建模領域的最前沿方法。
+
+### 4.3. 潛在的進一步優化空間 (Potential Further Optimization Avenues)
+
+**儘管目前模型性能已顯著提升，但針對 XGBoost, CNN 和 Transformer 各自的特性，仍存在以下優化空間：**
+
+*   **XGBoost 模型 (基於 Tabular/Engineered Features):**
+    *   **系統性的超參數搜索 (Systematic Hyperparameter Search):** 運用 `Optuna` 或 `GridSearchCV` 等工具，自動化地尋找最佳的 XGBoost 參數組合。
+    *   **進階特徵選擇 (Advanced Feature Selection):** 雖然已引入大量特徵，但可透過演算法篩選出最關鍵、去冗餘的特徵子集，以提高模型效率與泛化能力。
+    *   **集成學習 (`BalancedBaggingClassifier`) 的參數優化：** 微調 Bagging 本身的參數，如 `n_estimators` (集成模型數量)。
+
+*   **CNN 模型 (基於 Sequence - 自動學習局部模式):**
+    *   **樣本加權 (Sample Weighting):** 在訓練時對少數類樣本賦予更高權重，進一步解決類別不平衡問題。
+    *   **架構超參數調優:** 調整卷積核數量、大小、層數，池化策略，以及全連接層的設計。可使用自動化工具如 `KerasTuner`。
+    *   **更複雜的 CNN 結構:** 探索多分支 CNN (Inception-like)、殘差連接 (ResNet-like) 等更複雜的架構。
+
+*   **Transformer 模型 (基於 Sequence - 自動學習全局關聯):**
+    *   **超參數調優:** 調節注意力頭數量 (num_heads)、前饋網路維度 (ff_dim)、編碼器層數等。
+    *   **預訓練策略 (Pre-training):** 利用大量無標籤蛋白質序列數據進行預訓練（如 Masked Language Modeling），再對特定任務進行微調，這是 Transformer 在自然語言處理領域取得成功的關鍵。
+    *   **更複雜的 Transformer 結構:** 探索更深層次的 Transformer 編碼器堆疊。
+
+*   **異質模型堆疊 (Heterogeneous Model Stacking):**
+    *   將 XGBoost (從結構化特徵學習) 和 CNN/Transformer (從原始序列學習) 的預測結果進行集成，透過訓練一個「元模型」來學習如何最佳地組合不同模型的優勢，有望實現最終的性能突破。
