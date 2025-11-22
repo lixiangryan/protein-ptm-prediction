@@ -47,20 +47,48 @@
 - **結果**：此方法帶來了顯著的全局性能提升。**平均 ROC AUC 分數從 0.604 提升至 0.633**。這證明了集成學習在處理不平衡數據時的穩定性與優越性。雖然在最困難的目標 `S-PALMITOYLATION` 上 F1-Score 有輕微波動，但整體的辨識能力得到了實質性的增強。此改動被保留作為新的基準模型 (baseline)。
 - **備註：關於 GPU 預測性能的警告**：在最終的模型版本中，執行預測時可能會出現一個關於 `mismatched devices` 的 `UserWarning`。這是因為模型在 GPU 上運行，而輸入的稀疏矩陣數據在 CPU 上。我們曾嘗試透過更新 `xgboost` 版本並使用 `xgb.DMatrix(..., device="cuda")` 的語法來修正，但因 API 不相容而導致 `TypeError`。另一個 `cupy` 方案則有引發記憶體錯誤的風險。因此，我們最終決定接受這個不影響結果正確性的性能警告，以確保程式碼的穩定性和通用性。
 
----
+## 3. 執行方式 (How to Run)
 
-## 3. 執行方式
+本專案已透過 Docker 容器化，以確保環境一致性和易於部署。請確保您的系統已安裝 Docker Desktop，且若需使用 GPU，NVIDIA GPU 驅動程式已正確安裝。
 
-1.  確保已安裝所有必要的函式庫：
+### 3.1. 建置 Docker 映像 (Build Docker Image)
+
+1.  **準備工作**：
+    *   確保您的終端機已進入專案的根目錄 (`D:\學校相關\政大\課碩一上\Machine Learning\pochen`)。
+    *   請確認 `requirements.txt` 檔案存在且內容正確。
+    *   若您之前有 `requirements_tf.txt` 檔案，為避免混淆，請手動將其刪除。
+
+2.  **建置映像**：
+    *   執行以下指令來建置 Docker 映像。這會根據 `Dockerfile` 下載所需組件並安裝所有 Python 函式庫。
     ```bash
-    pip install pandas xgboost scikit-learn imbalanced-learn
+    docker build -t protein-ptm-predictor .
     ```
-2.  在終端機中執行以下指令：
-    ```bash
-    python XGBoost_MultiLabel.py
-    ```
+    (注意指令末尾的 `.` 代表當前目錄)
 
----
+### 3.2. 啟動 Docker 容器並執行程式 (Run Docker Container and Execute Scripts)
+
+1.  **啟動容器**：
+    *   映像建置完成後，執行以下指令來啟動容器。此指令會將您本機的專案資料夾 (`%cd%` 或 `/path/to/your/project`) 掛載到容器內的 `/app` 目錄，以便您在容器內外同步修改程式碼和存取輸出檔案。
+    ```bash
+    docker run --gpus all -it --rm -v "%cd%:/app" protein-ptm-predictor
+    ```
+    *   **指令說明**：
+        *   `--gpus all`：賦予容器存取所有可用 GPU 的權限 (若無 GPU，可省略)。
+        *   `-it`：以互動模式啟動容器，並分配一個偽終端機 (pseudo-TTY)。
+        *   `--rm`：容器停止後自動刪除容器實例 (不影響映像)。
+        *   `-v "%cd%:/app"`：將您的當前主機目錄 (`%cd%` 在 Windows 上，或在 Linux/macOS 上替換為 `$(pwd)` 或您的專案絕對路徑) 掛載到容器內的 `/app` 目錄。
+
+2.  **在容器內執行程式**：
+    *   成功啟動容器後，您的終端機提示符會變為類似 `root@<container_id>:/app#` 的樣子。此時，您已在 Docker 環境內。
+    *   您可以像之前一樣執行專案中的 Python 腳本：
+        ```bash
+        python XGBoost_MultiLabel.py
+        ```
+        ```bash
+        python CNN_MultiLabel.py
+        ```
+    *   程式的輸出檔案 (例如 `run/results` 和 `run/scoreboard` 中的 CSV) 將會出現在您的本機專案資料夾中。
+
 
 ## 4. 未來工作 (Future Work)
 
