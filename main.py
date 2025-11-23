@@ -29,15 +29,28 @@ def main():
 
         if choice in scripts:
             script_name = scripts[choice]
-            # Use an absolute path for the script to be executed
             script_path = os.path.abspath(os.path.join('scripts', script_name))
-            
             interpreter = sys.executable
+            
+            command = [interpreter, script_path]
+
+            # Special handling for XGBoost to select feature mode
+            if choice == '1':
+                print("---------------------------------------------")
+                feature_choice = input("請選擇 XGBoost 特徵模式 (1) 全量特徵 (2) 精英特徵選擇: ").strip()
+                if feature_choice == '2':
+                    command.append("--mode")
+                    command.append("select")
+                    print("已選擇「精英特徵選擇」模式。")
+                else:
+                    command.append("--mode")
+                    command.append("all")
+                    print("已選擇「全量特徵」模式。")
+                print("---------------------------------------------")
 
             print(f"\n--- 正在執行 {script_name} ---\n")
             
-            # Use subprocess.run for better error handling and output capture
-            result = subprocess.run([interpreter, script_path], capture_output=True, text=True, encoding='utf-8')
+            result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8')
             
             # Print stdout and stderr from the script
             if result.stdout:

@@ -19,6 +19,13 @@ from sklearn.metrics import mean_squared_error, accuracy_score, classification_r
 from datetime import datetime
 import argparse
 from sklearn.feature_extraction.text import CountVectorizer
+
+# --- Argument Parsing ---
+parser = argparse.ArgumentParser(description="Run XGBoost model with different feature modes.")
+parser.add_argument('--mode', type=str, default='all', choices=['all', 'select'],
+                    help="Feature mode: 'all' to use all features, 'select' to perform feature selection.")
+args = parser.parse_args()
+
 from scipy.sparse import hstack
 import scipy.sparse
 from imblearn.ensemble import BalancedBaggingClassifier
@@ -218,7 +225,56 @@ else:
     X_combined = dense_features
     final_feature_names = numerical_feature_cols
 
-# --- 4. 模型訓練 (使用獨立驗證集) ---
+# --- 4. 特徵選擇與模型訓練 ---
+
+if args.mode == 'select':
+    print("\n--- 執行精英特徵選擇模式 ---")
+    N_TOP_FEATURES = 2000  # 設定要選擇的特徵數量
+
+    # 為了獲取特徵重要性，我們需要先訓練一個模型
+    print("步驟 1/3: 訓練初步模型以獲取特徵重要性...")
+    
+    # 使用一個簡單、快速的基礎模型來獲取重要性
+    # 注意：這裡只為了排序特徵，不需過度複雜
+    fs_base_xgb = xgb.XGBClassifier(random_state=42, n_jobs=-1, tree_method='hist', device='cuda')
+    fs_model = BalancedBaggingClassifier(estimator=fs_base_xgb, n_estimators=10, random_state=42, n_jobs=-1)
+    
+    # 我們只在其中一個目標上訓練來獲取一個代表性的特徵重要性
+    # 我們也只使用訓練集部分的數據來擬合
+    temp_train_indices, _ = train_test_split(np.arange(X_combined.shape[0]), test_size=0.2, random_state=42)
+    fs_model.fit(X_combined[temp_train_indices], y_targets[temp_train_indices, 0])
+
+    # 提取並平均所有基礎模型的特徵重要性
+    print("步驟 2/3: 提取並排序特徵重要性...")
+    importances = np.zeros(X_combined.shape[1])
+    for estimator in fs_model.estimators_:
+        importances += estimator.feature_importances_
+    avg_importances = importances / len(fs_model.estimators_)
+
+    # 創建包含特徵名稱和重要性的 DataFrame
+    feature_importance_df = pd.DataFrame({
+        'feature': final_feature_names,
+        'importance': avg_importances
+    })
+
+    # 排序並選出最重要的 N 個特徵
+    top_features_df = feature_importance_df.sort_values(by='importance', ascending=False).head(N_TOP_FEATURES)
+    top_feature_names = top_features_df['feature'].tolist()
+    print(f"已選出最重要的 {len(top_feature_names)} 個特徵。")
+
+    # 找出這些特徵在原始特徵列表中的索引
+    top_feature_indices = [final_feature_names.index(name) for name in top_feature_names]
+
+    # 使用這些索引來過濾稀疏矩陣
+    print("步驟 3/3: 過濾特徵矩陣...")
+    X_combined = X_combined[:, top_feature_indices]
+    final_feature_names = top_feature_names # 更新特徵名稱列表
+    print(f"特徵矩陣已更新，新的形狀: {X_combined.shape}")
+
+else:
+    print("\n--- 執行全量特徵模式 ---")
+
+# --- 5. 模型訓練 (使用最終的特徵集) ---
 
 # 獲取訓練集和測試集的索引
 train_indices, test_indices = train_test_split(
@@ -233,9 +289,6 @@ X_test = X_combined[test_indices]
 train_df = full_df.loc[train_indices]
 test_df = full_df.loc[test_indices]
 
-
-from imblearn.ensemble import BalancedBaggingClassifier
-from sklearn.metrics import f1_score
 
 # 為每個目標變數訓練一個獨立的模型
 trained_models = {}
@@ -259,10 +312,9 @@ for target_col in TARGET_COLS:
         stratify=y # 維持原始分佈
     )
 
-    # --- 2. 使用 RandomizedSearchCV 進行超參數搜索 ---
+    # --- 使用 RandomizedSearchCV 進行超參數搜索 ---
     print("正在設定超參數搜索...")
 
-    # 定義基礎 XGBoost 模型
     base_xgb = xgb.XGBClassifier(
         objective='binary:logistic',
         random_state=42,
@@ -270,9 +322,7 @@ for target_col in TARGET_COLS:
         tree_method='hist',
         device='cuda'
     )
-
-    # 使用 BalancedBaggingClassifier 包裝基礎模型
-    # 注意：這裡 n_estimators 是 bagging 的集成數量，而 base_xgb 裡的 n_estimators 會在搜索範圍中定義
+    
     bagging_model = BalancedBaggingClassifier(
         estimator=base_xgb,
         n_estimators=10,
@@ -282,8 +332,6 @@ for target_col in TARGET_COLS:
         n_jobs=-1
     )
 
-    # 定義要搜索的超參數範圍
-    # 格式為 'estimator__<param_name>' 來指定基礎模型的參數
     param_dist = {
         'estimator__learning_rate': [0.01, 0.02, 0.05, 0.1],
         'estimator__max_depth': [5, 7, 9, 11],
@@ -294,30 +342,24 @@ for target_col in TARGET_COLS:
         'estimator__min_child_weight': [1, 5, 10]
     }
 
-    # 設定 RandomizedSearchCV
-    # n_iter: 隨機抽樣的參數組合數量
-    # cv: 交叉驗證的折數
     random_search = RandomizedSearchCV(
         bagging_model,
         param_distributions=param_dist,
-        n_iter=15,  # 嘗試 15 種組合，可以根據時間預算調整
+        n_iter=15,
         cv=3,
         scoring='roc_auc',
-        n_jobs=1,  # n_jobs for RandomizedSearchCV itself, inner n_jobs are -1
+        n_jobs=1,
         verbose=3,
         random_state=42
     )
 
     print(f"開始為目標 {target_col} 進行超參數搜索...")
-    # 直接在原始(不平衡)訓練集上訓練，RandomizedSearchCV 會處理交叉驗證
-    # BalancedBaggingClassifier 會在每個 fold 內部進行平衡採樣
     random_search.fit(X_train, y_train)
     
     print("\n搜索完成！")
     print(f"找到的最佳參數組合: {random_search.best_params_}")
     print(f"對應的最佳 ROC AUC 分數 (交叉驗證): {random_search.best_score_:.4f}")
 
-    # 將最佳模型賦值給 model 變數以供後續使用
     model = random_search.best_estimator_
     
     print(f"模型 {target_col} 訓練完成！")
@@ -338,7 +380,7 @@ for target_col in TARGET_COLS:
     print(classification_report(y_val, val_predictions, target_names=['Class 0', 'Class 1']))
     print("---------------------------------\n")
 
-    # --- 3. 閾值微調 (Threshold Tuning) ---
+    # --- 閾值微調 (Threshold Tuning) ---
     print("正在尋找最佳預測閾值以最大化 F1-Score...")
     thresholds = np.arange(0.01, 1.0, 0.01)
     f1_scores = [f1_score(y_val, val_pred_proba >= t) for t in thresholds]
@@ -349,7 +391,6 @@ for target_col in TARGET_COLS:
 
     print(f"找到最佳 F1-Score: {best_f1:.6f} (在閾值 = {best_threshold:.2f} 時)")
     
-    # 使用最佳閾值產生最終驗證報告
     val_predictions_tuned = (val_pred_proba >= best_threshold).astype(int)
     print(f"\n--- {target_col} 驗證結果 (使用最佳 F1 閾值) ---")
     print(classification_report(y_val, val_predictions_tuned, target_names=['Class 0', 'Class 1']))
@@ -367,20 +408,12 @@ average_accuracy = np.mean(list(val_accuracies.values()))
 average_auc = np.mean(list(val_aucs.values()))
 print(f"\n所有目標變數的平均 Accuracy: {average_accuracy:.6f}")
 print(f"所有目標變數的平均 ROC AUC: {average_auc:.6f}")
-val_score = average_auc # 將 val_score 設為平均 ROC AUC
-
-
-
-
+val_score = average_auc
 
 # 建立用於提交的 DataFrame
-submission_df = test_predictions_df.copy() # test_predictions_df 已經包含了 ID 和所有目標的預測
-
-# 將欄位名稱轉換為小寫以符合提交格式
+submission_df = test_predictions_df.copy()
 submission_df.columns = [col.lower() for col in submission_df.columns]
 
-# The 'id' column contains alphanumeric strings, so we do not convert it to int.
-# submission_df['id'] = submission_df['id'].astype(int)
 for col in [c.lower() for c in TARGET_COLS]:
     submission_df[col] = submission_df[col].astype(int)
 
@@ -389,28 +422,27 @@ output_dir = os.path.join(project_root, "run", "results", task_name)
 os.makedirs(output_dir, exist_ok=True)
 
 timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-method_name = "XGBoost_MultiLabel"
+method_name = f"XGBoost_Mode_{args.mode}" # 將模式加入方法名稱
 submission_filename = f"submission_{method_name}_{timestamp}.csv"
 output_path = os.path.join(output_dir, submission_filename)
 
 submission_df.to_csv(output_path, index=False)
-
 print(f"提交檔案 {output_path} 已建立。")
 
 # --- 7. 記錄分數 ---
 from util.scoreboard_manager import update_scoreboard
 
 scoreboard_file = os.path.join(project_root, "run", "scoreboard_classify.csv")
-score_label = "Average_Accuracy_Score" # 對於多標籤分類任務，我們記錄平均 Accuracy 分數
+score_label = "Average_ROC_AUC"
 
 new_score_entry = pd.DataFrame([{
     "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     "Method": method_name,
     "Task": task_name,
-    score_label: val_score, # val_score 已經是平均 Accuracy
+    score_label: val_score,
     "OutputFile": os.path.relpath(output_path, start=project_root)
 }])
 
 update_scoreboard(scoreboard_file, new_score_entry)
-
 print(f"分數已更新至 {scoreboard_file}")
+
