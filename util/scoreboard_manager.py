@@ -122,7 +122,6 @@ def clean_history():
                 print(f"Could not find history separator in {scoreboard_file}. Aborting cleanup for this file.")
                 continue
 
-            top_csv = StringIO("".join(lines[:blank_line_indices[0]]))
             top_df = pd.read_csv(top_csv)
             
             for file_path in top_df['OutputFile']:
@@ -131,11 +130,8 @@ def clean_history():
                     normalized_path = os.path.normpath(os.path.join(project_root, file_path))
                     all_best_files.add(normalized_path)
 
-            # Rewrite the scoreboard with only the top summary
-            with open(scoreboard_file, 'w', encoding='utf-8', newline='') as f:
-                top_df.to_csv(f, header=True, index=False, lineterminator='\n')
-                f.write('\n')
-            print(f"Cleaned history in {scoreboard_file}.")
+            # --- (Removed: Rewrite the scoreboard with only the top summary) ---
+            print(f"Processed scoreboard {scoreboard_file} to identify best files.")
 
         except Exception as e:
             print(f"Error processing {scoreboard_file}: {e}")
