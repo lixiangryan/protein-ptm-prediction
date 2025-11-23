@@ -174,6 +174,9 @@ if ID_COL not in full_df.columns:
 # 定義特徵欄位 (features)
 features = [col for col in full_df.columns if col not in [ID_COL] + TARGET_COLS]
 
+# 準備目標變數陣列
+y_targets = full_df[TARGET_COLS].values
+
 # --- 3. 特徵工程 (Feature Engineering) ---
 
 # a. 計算 AAC (胺基酸組成) 特徵
