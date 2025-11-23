@@ -250,8 +250,10 @@ if args.mode == 'select':
     # 提取並平均所有基礎模型的特徵重要性
     print("步驟 2/3: 提取並排序特徵重要性...")
     importances = np.zeros(X_combined.shape[1])
-    for estimator in fs_model.estimators_:
-        importances += estimator.feature_importances_
+    for pipeline in fs_model.estimators_:
+        # 從 pipeline 中獲取名為 'classifier' 的步驟，這才是真正的 XGBoost 模型
+        actual_model = pipeline.named_steps['classifier']
+        importances += actual_model.feature_importances_
     avg_importances = importances / len(fs_model.estimators_)
 
     # 創建包含特徵名稱和重要性的 DataFrame
