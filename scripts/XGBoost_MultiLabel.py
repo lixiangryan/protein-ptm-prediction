@@ -2,8 +2,8 @@ import sys
 import os
 # 取得腳本自身的絕對路徑
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# 專案根目錄就是腳本所在的目錄
-project_root = script_dir
+# 專案根目錄是腳本所在目錄的上一層
+project_root = os.path.dirname(script_dir)
 # 將專案根目錄加入 sys.path
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -367,6 +367,8 @@ submission_df.to_csv(output_path, index=False)
 print(f"提交檔案 {output_path} 已建立。")
 
 # --- 7. 記錄分數 ---
+from util.scoreboard_manager import update_scoreboard
+
 scoreboard_file = os.path.join(project_root, "run", "scoreboard_classify.csv")
 score_label = "Average_Accuracy_Score" # 對於多標籤分類任務，我們記錄平均 Accuracy 分數
 
@@ -378,17 +380,6 @@ new_score_entry = pd.DataFrame([{
     "OutputFile": os.path.relpath(output_path, start=project_root)
 }])
 
-try:
-    # 嘗試讀取現有的 scoreboard
-    scoreboard_df = pd.read_csv(scoreboard_file)
-except FileNotFoundError:
-    # 如果檔案不存在，則創建一個新的 DataFrame
-    scoreboard_df = pd.DataFrame()
-
-# 將新分數附加到 scoreboard
-updated_scoreboard = pd.concat([scoreboard_df, new_score_entry], ignore_index=True)
-
-# 寫回 CSV 檔案
-updated_scoreboard.to_csv(scoreboard_file, index=False)
+update_scoreboard(scoreboard_file, new_score_entry)
 
 print(f"分數已更新至 {scoreboard_file}")

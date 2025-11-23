@@ -49,46 +49,49 @@
 
 ## 3. 執行方式 (How to Run)
 
-本專案已透過 Docker 容器化，以確保環境一致性和易於部署。請確保您的系統已安裝 Docker Desktop，且若需使用 GPU，NVIDIA GPU 驅動程式已正確安裝。
+本專案提供兩種執行方式：透過 Conda 本地環境直接執行，或透過 Docker 容器執行。
 
-### 3.1. 建置 Docker 映像 (Build Docker Image)
+### 3.1. 方式一：本地端執行 (建議)
 
-1.  **準備工作**：
-    *   確保您的終端機已進入專案的根目錄 (`D:\學校相關\政大\課碩一上\Machine Learning\pochen`)。
-    *   請確認 `requirements.txt` 檔案存在且內容正確。
-    *   若您之前有 `requirements_tf.txt` 檔案，為避免混淆，請手動將其刪除。
+這是最簡單直接的執行方式。
 
-2.  **建置映像**：
-    *   執行以下指令來建置 Docker 映像。這會根據 `Dockerfile` 下載所需組件並安裝所有 Python 函式庫。
+1.  **環境設定**：
+    *   本專案有兩個 Conda 環境，`MLenv` (Python 3.14) 和 `tf_env` (Python 3.11)。由於 `tf_env` 包含了運行所有模型 (XGBoost, CNN, Transformer) 所需的全部套件，強烈建議使用此環境。
+    *   啟用環境：
+    ```bash
+    conda activate tf_env
+    ```
+
+2.  **執行主程式**：
+    *   在專案根目錄下，執行 `main.py`：
+    ```bash
+    python main.py
+    ```
+    *   程式會顯示一個互動式選單，您可以根據提示選擇要運行的模型 (1: XGBoost, 2: CNN, 3: Transformer)。
+
+### 3.2. 方式二：Docker 執行
+
+此方式可以確保在任何裝有 Docker 的機器上，都能擁有完全一致的執行環境。
+
+1.  **建置映像**：
+    *   在專案根目錄下執行以下指令來建置 Docker 映像。
     ```bash
     docker build -t protein-ptm-predictor .
     ```
-    (注意指令末尾的 `.` 代表當前目錄)
 
-### 3.2. 啟動 Docker 容器並執行程式 (Run Docker Container and Execute Scripts)
-
-1.  **啟動容器**：
-    *   映像建置完成後，執行以下指令來啟動容器。此指令會將您本機的專案資料夾 (`%cd%` 或 `/path/to/your/project`) 掛載到容器內的 `/app` 目錄，以便您在容器內外同步修改程式碼和存取輸出檔案。
+2.  **啟動容器並執行程式**：
+    *   執行以下指令來啟動容器。此指令會將您本機的專案資料夾掛載到容器內，方便同步程式碼和存取輸出檔案。
     ```bash
     docker run --gpus all -it --rm -v "%cd%:/app" protein-ptm-predictor
     ```
-    *   **指令說明**：
-        *   `--gpus all`：賦予容器存取所有可用 GPU 的權限 (若無 GPU，可省略)。
-        *   `-it`：以互動模式啟動容器，並分配一個偽終端機 (pseudo-TTY)。
-        *   `--rm`：容器停止後自動刪除容器實例 (不影響映像)。
-        *   `-v "%cd%:/app"`：將您的當前主機目錄 (`%cd%` 在 Windows 上，或在 Linux/macOS 上替換為 `$(pwd)` 或您的專案絕對路徑) 掛載到容器內的 `/app` 目錄。
+    *   **在容器內**：成功啟動後，您的終端機提示符會改變。此時，您已在 Docker 環境內，可以透過 `python main.py` 來啟動選單，或直接執行 `scripts/` 下的任一腳本。
 
-2.  **在容器內執行程式**：
-    *   成功啟動容器後，您的終端機提示符會變為類似 `root@<container_id>:/app#` 的樣子。此時，您已在 Docker 環境內。
-    *   您可以像之前一樣執行專案中的 Python 腳本：
-        ```bash
-        python XGBoost_MultiLabel.py
-        ```
-        ```bash
-        python CNN_MultiLabel.py
-        ```
-    *   程式的輸出檔案 (例如 `run/results` 和 `run/scoreboard` 中的 CSV) 將會出現在您的本機專案資料夾中。
+### 3.3. 退出容器 (Exiting the Container)
 
+當您在容器的終端機中完成操作後，只需輸入以下指令並按下 Enter，即可退出並自動關閉/刪除容器：
+```bash
+exit
+```
 
 ## 4. 未來工作 (Future Work)
 
@@ -100,16 +103,16 @@
 - **第三步：理化性質 (Physicochemical Properties)**。在加入平均疏水性、分子量等特徵後，模型性能達到新高，**平均 ROC AUC 從 0.734 提升至 0.746**。
 - **結論**：特徵工程是本次優化中最成功的環節，證明了結合領域知識的重要性。
 
-### 4.2. 探索深度學習模型 (已完成第一步 - 1D-CNN)
+### 4.2. 探索深度學習模型 (已完成)
 此階段旨在利用深度學習強大的特徵自動提取能力，探索性能的上限。
 
 - **已完成：一維卷積神經網路 (1D-CNN)**
     - **策略**：使用 `TensorFlow` 和 `Keras` 構建了一個 1D-CNN 模型，它擅長自動從序列中提取局部模式（Pattern/Motif）。
     - **結果**：CNN 模型在性能上顯著超越了所有優化後的 XGBoost 模型，**平均 ROC AUC 達到 0.772**，證明了此方向的巨大潛力。
 
-- **下一步計畫：Transformer 架構**
-    - **策略**：實現一個基於 Transformer 的模型。Transformer 的核心是「自註意力機制 (Self-Attention)」，它能夠捕捉序列中任意兩個胺基酸之間的長距離依賴關係，這是 CNN 的弱點。
-    - **目標**：驗證 Transformer 模型是否能透過其對全局依賴性的強大建模能力，進一步提升預測性能，特別是對於那些可能受遠端殘基影響的修飾位點。這代表了當前序列建模領域的最前沿方法。
+- **已完成：Transformer 架構**
+    - **策略**：實現了一個基於 Transformer 的模型，其核心是「自註意力機制 (Self-Attention)」，旨在捕捉序列中胺基酸之間的長距離依賴關係。
+    - **結果**：Transformer 模型在性能上再次實現提升，**平均 ROC AUC 達到了 0.780**，超越了 CNN 模型，成為專案中性能最強的模型。這證實了 Transformer 架構在蛋白質序列分析中的前沿地位和優越性。
 
 ### 4.3. 潛在的進一步優化空間 (Potential Further Optimization Avenues)
 

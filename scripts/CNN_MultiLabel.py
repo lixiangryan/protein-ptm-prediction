@@ -13,8 +13,8 @@ from tensorflow.keras import layers
 # --- 0. 設定環境和參數 ---
 # 取得腳本自身的絕對路徑
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# 專案根目錄就是腳本所在的目錄
-project_root = script_dir
+# 專案根目錄是腳本所在目錄的上一層
+project_root = os.path.dirname(script_dir)
 
 task_name = 'classify_multilabel_cnn'
 classify_data_filename = 'train_t1122classify.xlsx - Sheet1.csv'
@@ -219,6 +219,8 @@ submission_df.to_csv(output_path, index=False)
 print(f"提交檔案 {output_path} 已建立。")
 
 # --- 10. 記錄分數 (簡化處理，僅記錄平均 ROC AUC) ---
+from util.scoreboard_manager import update_scoreboard
+
 scoreboard_file = os.path.join(project_root, "run", "scoreboard_cnn.csv")
 score_label = "Average_ROC_AUC" 
 
@@ -230,12 +232,6 @@ new_score_entry = pd.DataFrame([{
     "OutputFile": os.path.relpath(output_path, start=project_root)
 }])
 
-try:
-    scoreboard_df = pd.read_csv(scoreboard_file)
-except FileNotFoundError:
-    scoreboard_df = pd.DataFrame()
-
-updated_scoreboard = pd.concat([scoreboard_df, new_score_entry], ignore_index=True)
-updated_scoreboard.to_csv(scoreboard_file, index=False)
+update_scoreboard(scoreboard_file, new_score_entry)
 
 print(f"分數已更新至 {scoreboard_file}")
