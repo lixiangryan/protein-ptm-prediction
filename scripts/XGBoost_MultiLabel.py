@@ -18,6 +18,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error, accuracy_score, classification_report, roc_auc_score
 from datetime import datetime
 import argparse
+import yaml # Import yaml for config file parsing
 from sklearn.feature_extraction.text import CountVectorizer
 
 # --- Argument Parsing ---
@@ -25,6 +26,21 @@ parser = argparse.ArgumentParser(description="Run XGBoost model with different f
 parser.add_argument('--mode', type=str, default='all', choices=['all', 'select'],
                     help="Feature mode: 'all' to use all features, 'select' to perform feature selection.")
 args = parser.parse_args()
+
+# --- Load config.yml ---
+config_path = os.path.join(project_root, 'config.yml')
+try:
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    # Extract training parameters, specifically for XGBoost search
+    TRAINING_PARAMS_XGB = config.get('training', {}).get('xgboost_search', {})
+    print("成功載入 config.yml 設定檔。")
+except FileNotFoundError:
+    print("錯誤：找不到 config.yml 設定檔。將使用 XGBoost search 預設參數。")
+    TRAINING_PARAMS_XGB = {'n_jobs': 1} # Fallback
+except Exception as e:
+    print(f"讀取 config.yml 時發生錯誤: {e}。將使用 XGBoost search 預設參數。")
+    TRAINING_PARAMS_XGB = {'n_jobs': 1} # Fallback
 
 from scipy.sparse import hstack
 import scipy.sparse
@@ -353,7 +369,7 @@ for target_col in TARGET_COLS:
         n_iter=15,
         cv=3,
         scoring='roc_auc',
-        n_jobs=-1,  # Use all available CPU cores for the search
+        n_jobs=TRAINING_PARAMS_XGB.get('n_jobs', 1), # Use n_jobs from config.yml
         verbose=3,
         random_state=42
     )

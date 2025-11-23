@@ -133,10 +133,10 @@ training:
 
 **儘管目前模型性能已顯著提升，但針對 XGBoost, CNN 和 Transformer 各自的特性，仍存在以下優化空間：**
 
-*   **XGBoost 模型 (基於 Tabular/Engineered Features):**
-    *   **系統性的超參數搜索 (Systematic Hyperparameter Search):** **(已完成)** 在 `XGBoost_MultiLabel.py` 中導入了 `RandomizedSearchCV`，以自動化、系統性地搜索最佳的超參數組合。
-    *   **進階特徵選擇 (Advanced Feature Selection):** **(已作為可選模式實現)** 腳本現在支援 `--mode select` 參數，可在訓練前先運行一個初步模型來評估特徵重要性，並只用最重要的 N 個特徵（預設 2000）來訓練最終模型。此功能可透過 `main.py` 的選單來啟用。
-    *   **集成學習 (`BalancedBaggingClassifier`) 的參數優化：** 在超參數搜索中，也可以包含對 Bagging 本身參數（如 `n_estimators`）的優化。
+*   **XGBoost 模型 (基於 Tabular/Engineered Features):** **(優化完畢)**
+    *   **系統性的超參數搜索 (Systematic Hyperparameter Search):** **(已完成)** 使用 `RandomizedSearchCV` 進行了自動化搜索。結果表明，我們手動設定的參數已接近最佳，此步驟並未帶來顯著的性能提升，但驗證了模型的穩定性。
+    *   **進階特徵選擇 (Advanced Feature Selection):** **(已完成)** 實現了「全量特徵」與「精英特徵（Top 2000）」的可選模式。實驗結果顯示，**使用全量特徵（平均 ROC AUC ≈ 0.746）的性能顯著優於精英特徵模式（平均 ROC AUC ≈ 0.640）**，證明了大量特徵的組合效應對此問題至關重要。
+    *   **結論：** XGBoost 的優化已達階段性極限，其最佳性能穩定在 0.746 (AUC)。
 
 *   **CNN 模型 (基於 Sequence - 自動學習局部模式):**
     *   **樣本加權 (Sample Weighting):** 在訓練時對少數類樣本賦予更高權重，進一步解決類別不平衡問題。

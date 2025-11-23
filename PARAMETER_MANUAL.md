@@ -20,15 +20,10 @@
 training:
   epochs: 100
   batch_size:
-    # Batch size for the CNN model.
-    # Note: 128 is a relatively large batch size, optimized for high-end GPUs
-    # like NVIDIA RTX 5090 (with 24GB+ VRAM) to maximize GPU utilization.
-    # For GPUs with less memory (e.g., 8GB or 12GB), you might need to reduce
-    # this value (e.g., 64, 32, or 16) to avoid out-of-memory errors.
     cnn: 128
-    # Batch size for the Transformer model.
-    # Similar considerations as for CNN apply here.
     transformer: 128
+  xgboost_search:
+    n_jobs: 1 # Number of parallel jobs for RandomizedSearchCV. Use -1 for all CPU cores (careful with GPU memory).
 ```
 
 ### 2.1. `training` 區塊
@@ -52,6 +47,20 @@ training:
         *   **效能考量**：較大的 `batch_size`（例如 `128`）通常能更好地利用 GPU 的並行計算能力，加快每個 Epoch 的訓練速度。但這也意味著需要更多的 GPU 顯存。
         *   **硬體限制**：目前的預設值 `128` 是為了 NVIDIA RTX 5090 (具有 24GB+ 顯存) 等高階 GPU 進行了優化，以最大化 GPU 利用率。
         *   **低顯存 GPU**：如果您的 GPU 顯存較少（例如 8GB 或 12GB），您可能需要**降低**此值（例如調整為 `64`, `32`, `16`），以避免出現「顯存不足 (Out-of-Memory, OOM)」錯誤。請根據您的硬體情況進行調整，常見的選擇是 2 的冪次方。
+
+### 2.2. `training.xgboost_search` 區塊
+
+此區塊包含 XGBoost 模型進行 `RandomizedSearchCV` 超參數搜索時的相關參數。
+
+*   **`n_jobs`**
+    *   **類型**：整數
+    *   **預設值**：`1`
+    *   **說明**：定義了 `RandomizedSearchCV` 進行交叉驗證時所使用的並行工作進程數。
+    *   **調整建議**：
+        *   `1`：預設值，表示順序執行。這能確保在 GPU 記憶體有限的環境下，避免多個進程同時搶佔 GPU 資源而導致「記憶體不足 (OOM)」錯誤。
+        *   `-1`：表示使用所有可用的 CPU 核心。這將極大地加速超參數搜索，但在每個並行任務都大量使用 GPU 的情況下，極有可能造成 GPU 記憶體不足而使程式崩潰。**除非您的 GPU 擁有極大的記憶體 (如 48GB 或更多)，或者您確切知道單一 XGBoost 訓練任務的 GPU 記憶體佔用非常小，否則請謹慎使用 `-1`。**
+        *   `N` (一個正整數)：表示使用 N 個 CPU 核心進行並行。您可以從較小的 N 開始測試，例如 `4` 或 `8`，逐步增加以找到最佳的 CPU 利用率和 GPU 穩定性之間的平衡點。
+
 
 ---
 
