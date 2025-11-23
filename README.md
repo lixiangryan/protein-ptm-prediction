@@ -119,9 +119,9 @@ exit
 **儘管目前模型性能已顯著提升，但針對 XGBoost, CNN 和 Transformer 各自的特性，仍存在以下優化空間：**
 
 *   **XGBoost 模型 (基於 Tabular/Engineered Features):**
-    *   **系統性的超參數搜索 (Systematic Hyperparameter Search):** 運用 `Optuna` 或 `GridSearchCV` 等工具，自動化地尋找最佳的 XGBoost 參數組合。
-    *   **進階特徵選擇 (Advanced Feature Selection):** 雖然已引入大量特徵，但可透過演算法篩選出最關鍵、去冗餘的特徵子集，以提高模型效率與泛化能力。
-    *   **集成學習 (`BalancedBaggingClassifier`) 的參數優化：** 微調 Bagging 本身的參數，如 `n_estimators` (集成模型數量)。
+    *   **系統性的超參數搜索 (Systematic Hyperparameter Search):** **(進行中)** 已在 `XGBoost_MultiLabel.py` 中導入 `RandomizedSearchCV`，以自動化、系統性地在一個預定義的參數空間中搜索最佳的超參數組合。這一步旨在將當前特徵集下的模型潛力壓榨到極致。
+    *   **下一步計畫：進階特徵選擇 (Advanced Feature Selection):** 在找到最佳參數後，下一步可以嘗試透過演算法篩選出最關鍵、去冗餘的特徵子集，以期在可能提升或保持性能的同時，降低模型的複雜度和訓練時間。
+    *   **集成學習 (`BalancedBaggingClassifier`) 的參數優化：** 在超參數搜索中，也可以包含對 Bagging 本身參數（如 `n_estimators`）的優化。
 
 *   **CNN 模型 (基於 Sequence - 自動學習局部模式):**
     *   **樣本加權 (Sample Weighting):** 在訓練時對少數類樣本賦予更高權重，進一步解決類別不平衡問題。

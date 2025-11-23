@@ -13,7 +13,7 @@ if project_root not in sys.path:
 import pandas as pd
 import numpy as np
 import xgboost as xgb
-from sklearn.model_selection import KFold, train_test_split
+from sklearn.model_selection import KFold, train_test_split, RandomizedSearchCV
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error, accuracy_score, classification_report, roc_auc_score
 from datetime import datetime
@@ -259,18 +259,12 @@ for target_col in TARGET_COLS:
         stratify=y # 維持原始分佈
     )
 
-    # --- 2. 使用 BalancedBaggingClassifier 進行訓練 ---
-    print("正在設定 BalancedBaggingClassifier...")
-    # 注意：作為基礎模型時，XGBoost 不能使用 early_stopping_rounds。
-    # Bagging 集成方法本身有助於防止過擬合。
+    # --- 2. 使用 RandomizedSearchCV 進行超參數搜索 ---
+    print("正在設定超參數搜索...")
+
+    # 定義基礎 XGBoost 模型
     base_xgb = xgb.XGBClassifier(
         objective='binary:logistic',
-        n_estimators=500, # 每個基礎模型的樹數量可以減少
-        learning_rate=0.05, # 可以適當提高學習率
-        max_depth=7,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        gamma=0.1,
         random_state=42,
         n_jobs=-1,
         tree_method='hist',
@@ -278,18 +272,54 @@ for target_col in TARGET_COLS:
     )
 
     # 使用 BalancedBaggingClassifier 包裝基礎模型
-    model = BalancedBaggingClassifier(
+    # 注意：這裡 n_estimators 是 bagging 的集成數量，而 base_xgb 裡的 n_estimators 會在搜索範圍中定義
+    bagging_model = BalancedBaggingClassifier(
         estimator=base_xgb,
-        n_estimators=10,  # 訓練 10 個 XGBoost 模型
+        n_estimators=10,
         sampling_strategy='auto',
         replacement=False,
         random_state=42,
         n_jobs=-1
     )
 
-    print(f"開始使用 BalancedBaggingClassifier 進行訓練 (目標：{target_col})...")
-    # 直接在原始(不平衡)訓練集上訓練，分類器內部會自動進行平衡採樣
-    model.fit(X_train, y_train)
+    # 定義要搜索的超參數範圍
+    # 格式為 'estimator__<param_name>' 來指定基礎模型的參數
+    param_dist = {
+        'estimator__learning_rate': [0.01, 0.02, 0.05, 0.1],
+        'estimator__max_depth': [5, 7, 9, 11],
+        'estimator__n_estimators': [300, 500, 800, 1000],
+        'estimator__gamma': [0.1, 0.5, 1, 1.5],
+        'estimator__subsample': [0.7, 0.8, 0.9],
+        'estimator__colsample_bytree': [0.7, 0.8, 0.9],
+        'estimator__min_child_weight': [1, 5, 10]
+    }
+
+    # 設定 RandomizedSearchCV
+    # n_iter: 隨機抽樣的參數組合數量
+    # cv: 交叉驗證的折數
+    random_search = RandomizedSearchCV(
+        bagging_model,
+        param_distributions=param_dist,
+        n_iter=15,  # 嘗試 15 種組合，可以根據時間預算調整
+        cv=3,
+        scoring='roc_auc',
+        n_jobs=1,  # n_jobs for RandomizedSearchCV itself, inner n_jobs are -1
+        verbose=3,
+        random_state=42
+    )
+
+    print(f"開始為目標 {target_col} 進行超參數搜索...")
+    # 直接在原始(不平衡)訓練集上訓練，RandomizedSearchCV 會處理交叉驗證
+    # BalancedBaggingClassifier 會在每個 fold 內部進行平衡採樣
+    random_search.fit(X_train, y_train)
+    
+    print("\n搜索完成！")
+    print(f"找到的最佳參數組合: {random_search.best_params_}")
+    print(f"對應的最佳 ROC AUC 分數 (交叉驗證): {random_search.best_score_:.4f}")
+
+    # 將最佳模型賦值給 model 變數以供後續使用
+    model = random_search.best_estimator_
+    
     print(f"模型 {target_col} 訓練完成！")
 
     # 在(原始不平衡)驗證集上評估模型
