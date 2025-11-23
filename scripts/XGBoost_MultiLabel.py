@@ -1,10 +1,11 @@
 import sys
 import os
-# 取得腳本自身的絕對路徑
+import sys
+
+# --- Path Setup ---
+# Add the project root to the Python path to allow imports from other directories like 'util'
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# 專案根目錄是腳本所在目錄的上一層
 project_root = os.path.dirname(script_dir)
-# 將專案根目錄加入 sys.path
 if project_root not in sys.path:
     sys.path.append(project_root)
 

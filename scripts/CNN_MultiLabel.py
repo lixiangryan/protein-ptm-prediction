@@ -1,5 +1,13 @@
 import os
 import sys
+
+# --- Path Setup ---
+# Add the project root to the Python path to allow imports from other directories like 'util'
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
