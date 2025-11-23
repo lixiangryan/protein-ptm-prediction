@@ -93,6 +93,21 @@
 exit
 ```
 
+### 3.4. 參數設定 (Parameter Configuration)
+
+為了方便調整深度學習模型（CNN, Transformer）的訓練參數，專案根目錄下提供了一個 `config.yml` 檔案。
+
+```yaml
+# config.yml
+training:
+  epochs: 100
+  batch_size:
+    cnn: 128
+    transformer: 128
+```
+
+您可以直接修改此檔案中的數值，來調整訓練的週期 (`epochs`) 或批次大小 (`batch_size`)，而無需更動任何 Python 程式碼。這對於在不同硬體上進行實驗或微調模型非常方便。
+
 ## 4. 未來工作 (Future Work)
 
 ### 4.1. (已完成) 進階生物特徵工程

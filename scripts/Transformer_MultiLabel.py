@@ -17,14 +17,32 @@ from datetime import datetime
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+import yaml
 
-# --- 0. 設定環境和參數 ---
+# --- 0. 設定環境、參數與設定檔 ---
+# Add the project root to the Python path to allow imports from other directories like 'util'
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# 專案根目錄是腳本所在目錄的上一層
 project_root = os.path.dirname(script_dir)
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 task_name = 'classify_multilabel_transformer'
 classify_data_filename = 'train_t1122classify.xlsx - Sheet1.csv'
+
+# 載入設定檔
+config_path = os.path.join(project_root, 'config.yml')
+try:
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    TRAINING_PARAMS = config['training']
+    print("成功載入 config.yml 設定檔。")
+except FileNotFoundError:
+    print("錯誤：找不到 config.yml 設定檔。將使用預設參數。")
+    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'transformer': 128}} # Fallback
+except Exception as e:
+    print(f"讀取 config.yml 時發生錯誤: {e}。將使用預設參數。")
+    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'transformer': 128}} # Fallback
+
 data_path = os.path.join(project_root, 'data', 'classification', classify_data_filename)
 
 if not os.path.exists(data_path):
@@ -161,15 +179,14 @@ X_train_tf, X_val_tf, y_train_tf, y_val_tf = train_test_split(
     stratify=np.argmax(y_train_full, axis=1) if len(TARGET_COLS) > 1 else y_train_full
 )
 
-history = transformer_model.fit(
+    history = transformer_model.fit(
     X_train_tf, y_train_tf,
-    epochs=100,
-    batch_size=32,
+    epochs=TRAINING_PARAMS.get('epochs', 100),
+    batch_size=TRAINING_PARAMS.get('batch_size', {}).get('transformer', 128),
     validation_data=(X_val_tf, y_val_tf),
     callbacks=callbacks,
     verbose=1
 )
-
 # --- 8. 模型評估與閾值微調 ---
 print("\n正在評估模型並尋找最佳閾值...")
 y_pred_proba_val = transformer_model.predict(X_val_tf)

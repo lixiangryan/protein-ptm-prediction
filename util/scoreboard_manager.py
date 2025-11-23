@@ -57,16 +57,20 @@ def update_scoreboard(scoreboard_file, new_score_entry):
     top_rows = []
     columns = new_score_entry.columns
     
-    if "scoreboard_predict.csv" in scoreboard_file:
-        top_tasks = ['task1', 'task2', 'task3']
-    elif "scoreboard_classify.csv" in scoreboard_file:
-        top_tasks = ['task4', 'task5']
+    
+    # Dynamically find all unique tasks from the history
+    if not valid_scores_df.empty:
+        top_tasks = valid_scores_df['Task'].unique()
     else:
-        top_tasks = []
+        # If history is empty, use the task from the new entry
+        top_tasks = new_score_entry['Task'].unique()
 
     for task in top_tasks:
         if not valid_scores_df.empty and task in valid_scores_df['Task'].values:
-            task_best_score_row = valid_scores_df[valid_scores_df['Task'] == task].sort_values(by=score_col, ascending=sort_ascending).iloc[0]
+            task_df = valid_scores_df[valid_scores_df['Task'] == task]
+            # Ensure score column is numeric for sorting
+            task_df[score_col] = pd.to_numeric(task_df[score_col])
+            task_best_score_row = task_df.sort_values(by=score_col, ascending=sort_ascending).iloc[0]
             top_rows.append(task_best_score_row.to_dict())
         else:
             placeholder_row = {col: '-' for col in columns}

@@ -17,15 +17,32 @@ from datetime import datetime
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+import yaml
 
-# --- 0. 設定環境和參數 ---
-# 取得腳本自身的絕對路徑
+# --- 0. 設定環境、參數與設定檔 ---
+# Add the project root to the Python path to allow imports from other directories like 'util'
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# 專案根目錄是腳本所在目錄的上一層
 project_root = os.path.dirname(script_dir)
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 task_name = 'classify_multilabel_cnn'
 classify_data_filename = 'train_t1122classify.xlsx - Sheet1.csv'
+
+# 載入設定檔
+config_path = os.path.join(project_root, 'config.yml')
+try:
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    TRAINING_PARAMS = config['training']
+    print("成功載入 config.yml 設定檔。")
+except FileNotFoundError:
+    print("錯誤：找不到 config.yml 設定檔。將使用預設參數。")
+    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'cnn': 128}} # Fallback
+except Exception as e:
+    print(f"讀取 config.yml 時發生錯誤: {e}。將使用預設參數。")
+    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'cnn': 128}} # Fallback
+
 
 # 設定資料路徑
 data_path = os.path.join(project_root, 'data', 'classification', classify_data_filename)
@@ -166,10 +183,10 @@ X_train_cnn, X_val_cnn, y_train_cnn, y_val_cnn = train_test_split(
 
 history = cnn_model.fit(
     X_train_cnn, y_train_cnn,
-    epochs=100, # 可以設置較高的 Epochs，因為有 Early Stopping
-    batch_size=32,
+    epochs=TRAINING_PARAMS.get('epochs', 100),
+    batch_size=TRAINING_PARAMS.get('batch_size', {}).get('cnn', 128),
     validation_data=(X_val_cnn, y_val_cnn),
-    callbacks=cb,
+    callbacks=callbacks,
     verbose=1
 )
 

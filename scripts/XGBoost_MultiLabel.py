@@ -353,7 +353,7 @@ for target_col in TARGET_COLS:
         n_iter=15,
         cv=3,
         scoring='roc_auc',
-        n_jobs=1,
+        n_jobs=-1,  # Use all available CPU cores for the search
         verbose=3,
         random_state=42
     )

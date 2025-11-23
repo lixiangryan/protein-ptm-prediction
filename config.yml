@@ -1,0 +1,23 @@
+# Configuration for Model Training
+
+training:
+  epochs: 100
+  batch_size:
+    # Batch size for the CNN model.
+    # Note: 128 is a relatively large batch size, optimized for high-end GPUs
+    # like NVIDIA RTX 5090 (with 24GB+ VRAM) to maximize GPU utilization.
+    # For GPUs with less memory (e.g., 8GB or 12GB), you might need to reduce
+    # this value (e.g., 64, 32, or 16) to avoid out-of-memory errors.
+    cnn: 128
+    # Batch size for the Transformer model.
+    # Similar considerations as for CNN apply here.
+    transformer: 128
+
+# Example of how to add more parameters
+# model_params:
+#   cnn:
+#     filters: 128
+#     kernel_size: 5
+#   transformer:
+#     embed_dim: 64
+#     num_heads: 4
