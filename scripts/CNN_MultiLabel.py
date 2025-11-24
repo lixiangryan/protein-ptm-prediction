@@ -116,79 +116,137 @@ y_train_full, y_test = y_targets[train_indices], y_targets[test_indices]
 full_df_train, full_df_test = full_df.iloc[train_indices], full_df.iloc[test_indices]
 
 
-# --- 6. 模型建構 (1D-CNN) ---
-def build_cnn_model(input_shape, num_targets):
-    model = keras.Sequential([
-        layers.Input(shape=input_shape),
-        layers.Conv1D(filters=128, kernel_size=5, activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.Conv1D(filters=128, kernel_size=5, activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.GlobalMaxPooling1D(), # 全局最大池化，將每個濾波器的輸出降維為單一值
-        layers.Dense(128, activation='relu'),
-        layers.Dropout(0.3),
-        layers.Dense(num_targets, activation='sigmoid') # 多標籤分類使用 sigmoid
-    ])
+import keras_tuner as kt
+
+# --- 6. 模型建構 (Hyper-tunable 1D-ResNet) ---
+def make_residual_block(input_tensor, filters, kernel_size):
+    # ... (This helper function remains the same)
+    x = layers.Conv1D(filters, kernel_size, padding='same')(input_tensor)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation('relu')(x)
+    x = layers.Conv1D(filters, kernel_size, padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    if input_tensor.shape[-1] != filters:
+        shortcut = layers.Conv1D(filters, 1, padding='same')(input_tensor)
+    else:
+        shortcut = input_tensor
+    x = layers.add([x, shortcut])
+    x = layers.Activation('relu')(x)
+    return x
+
+def build_resnet_model(hp):
+    """Builds a 1D ResNet model with tunable hyperparameters."""
+    input_shape = (max_sequence_len, num_amino_acids)
+    inputs = layers.Input(shape=input_shape)
+    
+    # Initial convolution
+    x = layers.Conv1D(
+        filters=hp.Int('init_filters', min_value=32, max_value=128, step=32),
+        kernel_size=7, 
+        padding='same'
+    )(inputs)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation('relu')(x)
+    
+    # Stack of residual blocks
+    # Tune the number of filters and blocks
+    for i in range(hp.Int('num_resnet_blocks', 1, 3)):
+        x = make_residual_block(
+            x,
+            filters=hp.Int(f'filters_{i}', min_value=64, max_value=256, step=64),
+            kernel_size=3
+        )
+    
+    # Final layers
+    x = layers.GlobalAveragePooling1D()(x)
+    x = layers.Dense(
+        units=hp.Int('dense_units', min_value=64, max_value=256, step=64),
+        activation='relu'
+    )(x)
+    x = layers.Dropout(hp.Float('dropout', min_value=0.1, max_value=0.5, step=0.1))(x)
+    outputs = layers.Dense(len(TARGET_COLS), activation='sigmoid')(x)
+    
+    model = keras.Model(inputs=inputs, outputs=outputs)
+    
+    # Compile the model inside the build function
+    model.compile(
+        optimizer=keras.optimizers.Adam(
+            hp.Choice('learning_rate', values=[1e-2, 1e-3, 1e-4])
+        ),
+        loss='binary_crossentropy',
+        metrics=[keras.metrics.AUC(name='auc', multi_label=True)]
+    )
     return model
 
-input_shape = (max_sequence_len, num_amino_acids)
-cnn_model = build_cnn_model(input_shape, len(TARGET_COLS))
-cnn_model.summary()
+# --- 7. KerasTuner 超參數搜索 ---
+print("\n設定 KerasTuner 並開始搜索...")
 
-# --- 7. 模型編譯與訓練 ---
-print("\n開始訓練深度學習模型...")
+tuner = kt.RandomSearch(
+    build_resnet_model,
+    objective=kt.Objective('val_auc', direction='max'),
+    max_trials=10,  # 嘗試 10 種不同的超參數組合
+    executions_per_trial=1, # 每次試驗訓練 1 次
+    directory='keras_tuner_dir',
+    project_name='cnn_resnet_tuning',
+    overwrite=True
+)
 
-# 為了處理類別不平衡，計算類別權重 (Class Weights)
-# 這裡計算的是針對每個目標的類別權重，並取其平均或為每個目標獨立訓練
-# 簡化處理：對每個目標，計算正例和負例的權重
+tuner.search_space_summary()
+
+# 分割訓練集為訓練和驗證集
+X_train_cnn, X_val_cnn, y_train_cnn, y_val_cnn = train_test_split(
+    X_train_full, y_train_full,
+    test_size=0.2,
+    random_state=42,
+    stratify=np.argmax(y_train_full, axis=1) if len(TARGET_COLS) > 1 else y_train_full
+)
+
+# 計算樣本權重
+print("正在計算樣本權重...")
 class_weights_per_target = []
-for i, target_col in enumerate(TARGET_COLS):
-    neg = np.sum(y_train_full[:, i] == 0)
-    pos = np.sum(y_train_full[:, i] == 1)
+for i in range(y_train_full.shape[1]):
+    neg, pos = np.bincount(y_train_full[:, i].astype(int))
     total = neg + pos
-    weight_for_0 = (1 / neg) * (total / 2.0)
-    weight_for_1 = (1 / pos) * (total / 2.0)
+    weight_for_0 = (1 / neg) * (total / 2.0) if neg > 0 else 0
+    weight_for_1 = (1 / pos) * (total / 2.0) if pos > 0 else 0
     class_weights_per_target.append({0: weight_for_0, 1: weight_for_1})
 
-# 在多標籤設定中，keras 的 class_weight 應用稍微複雜，通常需要手動在損失函數中加權
-# 或者，可以將類別權重應用到每個樣本，這在 fit() 函數中通過 sample_weight 實現
-# 這裡我們為了簡化，先不使用 class_weight，觀察模型在沒有它的情況下如何表現。
-# 如果效果不佳，可以考慮對每個樣本手動計算 sample_weight。
+sample_weights = np.array([max([class_weights_per_target[j][label] for j, label in enumerate(sample_label)]) for sample_label in y_train_cnn])
+print("樣本權重計算完成。")
 
-# 定義優化器、損失函數和評估指標
-cnn_model.compile(
-    optimizer=keras.optimizers.Adam(learning_rate=0.001),
-    loss='binary_crossentropy', # 多標籤分類使用 binary_crossentropy
-    metrics=[
-        keras.metrics.AUC(name='auc', multi_label=True),
-        keras.metrics.Precision(name='precision'),
-        keras.metrics.Recall(name='recall')
-    ]
+# 執行搜索
+tuner.search(
+    X_train_cnn, y_train_cnn,
+    sample_weight=sample_weights,
+    epochs=20, # 在搜索階段使用較少的 epochs
+    validation_data=(X_val_cnn, y_val_cnn),
+    callbacks=[keras.callbacks.EarlyStopping('val_loss', patience=5)]
 )
 
-# 定義回調函數 (Early Stopping, Model Checkpoint)
-cb = [
-    keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
-    keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.00001)
-]
+print("\n超參數搜索完成！")
+# 獲取最佳模型
+cnn_model = tuner.get_best_models(num_models=1)[0]
+# 顯示最佳參數
+tuner.results_summary()
 
-# 分割訓練集為訓練和驗證集 (用於 Early Stopping)
-X_train_cnn, X_val_cnn, y_train_cnn, y_val_cnn = train_test_split(
-    X_train_full, y_train_full, 
-    test_size=0.2, # 20% 的訓練數據作為驗證集
-    random_state=42,
-    stratify=np.argmax(y_train_full, axis=1) if len(TARGET_COLS) > 1 else y_train_full # stratified split
-)
-
+# (可選) 用最佳參數重新訓練更長的時間
+print("\n使用最佳參數重新訓練最終模型...")
+best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
+cnn_model = build_resnet_model(best_hps) # Re-build the model with the best HPs
 
 history = cnn_model.fit(
     X_train_cnn, y_train_cnn,
+    sample_weight=sample_weights,
     epochs=TRAINING_PARAMS.get('epochs', 100),
     batch_size=TRAINING_PARAMS.get('batch_size', {}).get('cnn', 128),
     validation_data=(X_val_cnn, y_val_cnn),
-    callbacks=cb,
+    callbacks=[
+        keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
+        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5)
+    ],
     verbose=1
 )
+
 
 # --- 8. 模型評估與閾值微調 ---
 print("\n正在評估模型並尋找最佳閾值...")

@@ -2,6 +2,7 @@
 
 # Deep Learning Framework
 tensorflow
+keras-tuner
 
 # Machine Learning & Gradient Boosting
 xgboost

@@ -95,7 +95,7 @@ exit
 
 ### 3.4. 參數設定 (Parameter Configuration)
 
-為了方便調整模型的訓練參數，專案根目錄下提供了一個 `config.yml` 檔案。
+為了方便調整深度學習模型（CNN, Transformer）的訓練參數，專案根目錄下提供了一個 `config.yml` 檔案。
 
 ```yaml
 # config.yml
@@ -109,21 +109,6 @@ training:
 ```
 
 您可以直接修改此檔案中的數值，來調整訓練的週期 (`epochs`)、批次大小 (`batch_size`)，以及 XGBoost 超參數搜索的並行數 (`n_jobs`)，而無需更動任何 Python 程式碼。這對於在不同硬體上進行實驗或微調模型非常方便。
-
-### 3.4. 參數設定 (Parameter Configuration)
-
-為了方便調整深度學習模型（CNN, Transformer）的訓練參數，專案根目錄下提供了一個 `config.yml` 檔案。
-
-```yaml
-# config.yml
-training:
-  epochs: 100
-  batch_size:
-    cnn: 128
-    transformer: 128
-```
-
-您可以直接修改此檔案中的數值，來調整訓練的週期 (`epochs`) 或批次大小 (`batch_size`)，而無需更動任何 Python 程式碼。這對於在不同硬體上進行實驗或微調模型非常方便。
 
 ## 4. 未來工作 (Future Work)
 
@@ -156,9 +141,9 @@ training:
     *   **結論：** XGBoost 的優化已達階段性極限，其最佳性能穩定在 0.746 (AUC)。
 
 *   **CNN 模型 (基於 Sequence - 自動學習局部模式):**
-    *   **樣本加權 (Sample Weighting):** 在訓練時對少數類樣本賦予更高權重，進一步解決類別不平衡問題。
-    *   **架構超參數調優:** 調整卷積核數量、大小、層數，池化策略，以及全連接層的設計。可使用自動化工具如 `KerasTuner`。
-    *   **更複雜的 CNN 結構:** 探索多分支 CNN (Inception-like)、殘差連接 (ResNet-like) 等更複雜的架構。
+    *   **架構升級 (已完成):** `CNN_MultiLabel.py` 已經是基於 **1D ResNet** 架構。
+    *   **樣本加權 (Sample Weighting):** **(已實現)** 在訓練時對少數類樣本賦予更高權重，以處理類別不平衡問題。
+    *   **系統性的超參數搜索 (Systematic Hyperparameter Search):** **(進行中)** 已在 `CNN_MultiLabel.py` 中導入 `KerasTuner`，以自動化、系統性地搜索 ResNet 架構的最佳配置，包括網路深度、濾波器數量、學習率等。
 
 *   **Transformer 模型 (基於 Sequence - 自動學習全局關聯):**
     *   **超參數調優:** 調節注意力頭數量 (num_heads)、前饋網路維度 (ff_dim)、編碼器層數等。
