@@ -214,12 +214,26 @@ for i in range(y_train_full.shape[1]):
 sample_weights = np.array([max([class_weights_per_target[j][label] for j, label in enumerate(sample_label)]) for sample_label in y_train_cnn])
 print("樣本權重計算完成。")
 
+# --- 建立高效的 tf.data 管線 ---
+print("建立 tf.data 高效能管線...")
+batch_size_cnn = TRAINING_PARAMS.get('batch_size', {}).get('cnn', 128)
+
+# 將樣本權重與特徵和目標打包
+# Note: KerasTuner's search method doesn't directly accept sample_weight with a tf.data.Dataset.
+# The recommended way is to make the dataset yield a tuple of (inputs, targets, sample_weights).
+train_dataset = tf.data.Dataset.from_tensor_slices((X_train_cnn, y_train_cnn, sample_weights))
+val_dataset = tf.data.Dataset.from_tensor_slices((X_val_cnn, y_val_cnn))
+
+# 建立管線：打亂 -> 分批 -> 預取
+train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size_cnn).prefetch(tf.data.AUTOTUNE)
+val_dataset = val_dataset.batch(batch_size_cnn).prefetch(tf.data.AUTOTUNE)
+print("tf.data 管線建立完成。")
+
 # 執行搜索
 tuner.search(
-    X_train_cnn, y_train_cnn,
-    sample_weight=sample_weights,
+    train_dataset,
     epochs=20, # 在搜索階段使用較少的 epochs
-    validation_data=(X_val_cnn, y_val_cnn),
+    validation_data=val_dataset,
     callbacks=[keras.callbacks.EarlyStopping('val_loss', patience=5)]
 )
 
@@ -235,11 +249,9 @@ best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
 cnn_model = build_resnet_model(best_hps) # Re-build the model with the best HPs
 
 history = cnn_model.fit(
-    X_train_cnn, y_train_cnn,
-    sample_weight=sample_weights,
+    train_dataset, # Use the optimized dataset
     epochs=TRAINING_PARAMS.get('epochs', 100),
-    batch_size=TRAINING_PARAMS.get('batch_size', {}).get('cnn', 128),
-    validation_data=(X_val_cnn, y_val_cnn),
+    validation_data=val_dataset,
     callbacks=[
         keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
         keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5)

@@ -158,6 +158,7 @@ callbacks = [
     keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.00001)
 ]
 
+# 分割訓練集為訓練和驗證集
 X_train_tf, X_val_tf, y_train_tf, y_val_tf = train_test_split(
     X_train_full, y_train_full,
     test_size=0.2,
@@ -165,11 +166,35 @@ X_train_tf, X_val_tf, y_train_tf, y_val_tf = train_test_split(
     stratify=np.argmax(y_train_full, axis=1) if len(TARGET_COLS) > 1 else y_train_full
 )
 
+# --- 處理類別不平衡：計算樣本權重 (Sample Weights) ---
+print("正在計算樣本權重以處理類別不平衡...")
+class_weights_per_target = []
+for i in range(y_train_full.shape[1]):
+    neg, pos = np.bincount(y_train_full[:, i].astype(int))
+    total = neg + pos
+    weight_for_0 = (1 / neg) * (total / 2.0) if neg > 0 else 0
+    weight_for_1 = (1 / pos) * (total / 2.0) if pos > 0 else 0
+    class_weights_per_target.append({0: weight_for_0, 1: weight_for_1})
+
+sample_weights = np.array([max([class_weights_per_target[j][label] for j, label in enumerate(sample_label)]) for sample_label in y_train_tf])
+print("樣本權重計算完成。")
+
+# --- 建立高效的 tf.data 管線 ---
+print("建立 tf.data 高效能管線...")
+batch_size_transformer = TRAINING_PARAMS.get('batch_size', {}).get('transformer', 128)
+
+train_dataset = tf.data.Dataset.from_tensor_slices((X_train_tf, y_train_tf, sample_weights))
+val_dataset = tf.data.Dataset.from_tensor_slices((X_val_tf, y_val_tf))
+
+train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size_transformer).prefetch(tf.data.AUTOTUNE)
+val_dataset = val_dataset.batch(batch_size_transformer).prefetch(tf.data.AUTOTUNE)
+print("tf.data 管線建立完成。")
+
+# 訓練模型
 history = transformer_model.fit(
-    X_train_tf, y_train_tf,
+    train_dataset,
     epochs=TRAINING_PARAMS.get('epochs', 100),
-    batch_size=TRAINING_PARAMS.get('batch_size', {}).get('transformer', 128),
-    validation_data=(X_val_tf, y_val_tf),
+    validation_data=val_dataset,
     callbacks=callbacks,
     verbose=1
 )
