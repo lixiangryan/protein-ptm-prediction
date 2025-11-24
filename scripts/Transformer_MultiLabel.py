@@ -180,14 +180,13 @@ X_train_tf, X_val_tf, y_train_tf, y_val_tf = train_test_split(
 )
 
     history = transformer_model.fit(
-    X_train_tf, y_train_tf,
-    epochs=TRAINING_PARAMS.get('epochs', 100),
-    batch_size=TRAINING_PARAMS.get('batch_size', {}).get('transformer', 128),
-    validation_data=(X_val_tf, y_val_tf),
-    callbacks=callbacks,
-    verbose=1
-)
-# --- 8. 模型評估與閾值微調 ---
+        X_train_tf, y_train_tf,
+        epochs=TRAINING_PARAMS.get('epochs', 100),
+        batch_size=TRAINING_PARAMS.get('batch_size', {}).get('transformer', 128),
+        validation_data=(X_val_tf, y_val_tf),
+        callbacks=callbacks,
+        verbose=1
+    )# --- 8. 模型評估與閾值微調 ---
 print("\n正在評估模型並尋找最佳閾值...")
 y_pred_proba_val = transformer_model.predict(X_val_tf)
 optimal_thresholds = {}
