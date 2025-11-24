@@ -13,19 +13,12 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, f1_score
 from datetime import datetime
-
+import yaml
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-import yaml
 
 # --- 0. 設定環境、參數與設定檔 ---
-# Add the project root to the Python path to allow imports from other directories like 'util'
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(script_dir)
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
 task_name = 'classify_multilabel_transformer'
 classify_data_filename = 'train_t1122classify.xlsx - Sheet1.csv'
 
@@ -65,18 +58,15 @@ if 'SEQUENCE' not in full_df.columns:
 # --- 3. 序列預處理 (Integer Encoding + Padding) ---
 print("正在預處理序列數據...")
 
-# 定義胺基酸字母表
 amino_acids = 'ACDEFGHIKLMNPQRSTVWYX' # X for unknown/padding
 char_to_int = {c: i for i, c in enumerate(amino_acids)}
 vocab_size = len(amino_acids)
 
-# 將序列轉換為整數序列
 def sequence_to_int(sequence):
     return [char_to_int.get(char.upper(), char_to_int['X']) for char in str(sequence)]
 
 full_df['SEQUENCE_INT'] = full_df['SEQUENCE'].apply(sequence_to_int)
 
-# 序列填充 (Padding)
 max_sequence_len = full_df['SEQUENCE_INT'].apply(len).max()
 print(f"最長序列長度: {max_sequence_len}")
 
@@ -99,7 +89,6 @@ full_df_train, full_df_test = full_df.iloc[train_indices], full_df.iloc[test_ind
 
 # --- 6. 模型建構 (Transformer) ---
 
-# 6.1. Token & Position Embedding Layer
 class TokenAndPositionEmbedding(layers.Layer):
     def __init__(self, maxlen, vocab_size, embed_dim):
         super().__init__()
@@ -113,7 +102,6 @@ class TokenAndPositionEmbedding(layers.Layer):
         x = self.token_emb(x)
         return x + positions
 
-# 6.2. Transformer Encoder Block Layer
 class TransformerBlock(layers.Layer):
     def __init__(self, embed_dim, num_heads, ff_dim, rate=0.1):
         super().__init__()
@@ -134,17 +122,16 @@ class TransformerBlock(layers.Layer):
         ffn_output = self.dropout2(ffn_output, training=training)
         return self.layernorm2(out1 + ffn_output)
 
-# 6.3. 組合模型
-embed_dim = 64  # Embedding a cada token en un vector de 64 dimensiones
-num_heads = 4  # Número de cabezales de atención
-ff_dim = 64  # Dimensión de la capa oculta en la red feed-forward
+embed_dim = 64
+num_heads = 4
+ff_dim = 64
 
 inputs = layers.Input(shape=(max_sequence_len,))
 embedding_layer = TokenAndPositionEmbedding(max_sequence_len, vocab_size, embed_dim)
 x = embedding_layer(inputs)
 transformer_block = TransformerBlock(embed_dim, num_heads, ff_dim)
 x = transformer_block(x)
-x = layers.GlobalAveragePooling1D()(x) # Similar a la CNN, reducimos la dimensionalidad
+x = layers.GlobalAveragePooling1D()(x)
 x = layers.Dropout(0.2)(x)
 x = layers.Dense(64, activation="relu")(x)
 x = layers.Dropout(0.2)(x)
@@ -171,23 +158,23 @@ callbacks = [
     keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.00001)
 ]
 
-# 分割訓練集為訓練和驗證集
 X_train_tf, X_val_tf, y_train_tf, y_val_tf = train_test_split(
-    X_train_full, y_train_full, 
-    test_size=0.2, 
+    X_train_full, y_train_full,
+    test_size=0.2,
     random_state=42,
     stratify=np.argmax(y_train_full, axis=1) if len(TARGET_COLS) > 1 else y_train_full
-    )
-    
-    history = transformer_model.fit(
-        X_train_tf, y_train_tf,
-        epochs=TRAINING_PARAMS.get('epochs', 100),
-        batch_size=TRAINING_PARAMS.get('batch_size', {}).get('transformer', 128),
-        validation_data=(X_val_tf, y_val_tf),
-        callbacks=callbacks,
-        verbose=1
-    )
-    # --- 8. 模型評估與閾值微調 ---
+)
+
+history = transformer_model.fit(
+    X_train_tf, y_train_tf,
+    epochs=TRAINING_PARAMS.get('epochs', 100),
+    batch_size=TRAINING_PARAMS.get('batch_size', {}).get('transformer', 128),
+    validation_data=(X_val_tf, y_val_tf),
+    callbacks=callbacks,
+    verbose=1
+)
+
+# --- 8. 模型評估與閾值微調 ---
 print("\n正在評估模型並尋找最佳閾值...")
 y_pred_proba_val = transformer_model.predict(X_val_tf)
 optimal_thresholds = {}
