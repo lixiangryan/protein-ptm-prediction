@@ -9,7 +9,8 @@ def main():
     scripts = {
         '1': 'XGBoost_MultiLabel.py',
         '2': 'CNN_MultiLabel.py',
-        '3': 'Transformer_MultiLabel.py'
+        '3': 'Transformer_MultiLabel.py',
+        '4': 'CNN_ResNet.py'
     }
 
     while True:
@@ -18,14 +19,15 @@ def main():
         print("=============================================")
         print("請選擇要執行的操作：")
         print("  1: 運行 XGBoost 模型")
-        print("  2: 運行 CNN 模型")
+        print("  2: 運行 CNN 模型 (較佳)")
         print("  3: 運行 Transformer 模型")
+        print("  4: 運行 CNN-ResNet 模型 (實驗性)")
         print("---------------------------------------------")
         print("  c: 清理歷史紀錄 (Clean execution history)")
         print("  q: 退出 (Quit)")
         print("=============================================")
         
-        choice = input("請輸入您的選擇 (1/2/3/c/q): ").strip().lower()
+        choice = input("請輸入您的選擇 (1/2/3/4/c/q): ").strip().lower()
 
         if choice in scripts:
             script_name = scripts[choice]
@@ -50,7 +52,7 @@ def main():
 
             print(f"\n--- 正在執行 {script_name} ---\n")
             
-            result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8')
+            result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', errors='ignore')
             
             # Print stdout and stderr from the script
             if result.stdout:
@@ -68,9 +70,14 @@ def main():
                 break
 
         elif choice == 'c':
-            confirm = input("警告：此操作將刪除 'run/results/' 中除了每個任務最佳分數外的所有檔案，並清空計分板的執行歷史。確定要繼續嗎？(y/n): ").strip().lower()
+            confirm = input("警告：此操作將刪除 'run/results/' 中除了每個任務最佳分數外的所有檔案。確定要繼續嗎？(y/n): ").strip().lower()
             if confirm == 'y':
                 try:
+                    # We need to add project root to path to find util
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    project_root = script_dir # In this case, main.py is in the root
+                    if project_root not in sys.path:
+                        sys.path.append(project_root)
                     from util.scoreboard_manager import clean_history
                     print("\n--- 正在清理歷史紀錄 ---")
                     clean_history()
@@ -91,4 +98,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

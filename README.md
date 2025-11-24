@@ -141,9 +141,11 @@ training:
     *   **結論：** XGBoost 的優化已達階段性極限，其最佳性能穩定在 0.746 (AUC)。
 
 *   **CNN 模型 (基於 Sequence - 自動學習局部模式):**
-    *   **架構升級 (已完成):** `CNN_MultiLabel.py` 已經是基於 **1D ResNet** 架構。
-    *   **樣本加權 (Sample Weighting):** **(已實現)** 在訓練時對少數類樣本賦予更高權重，以處理類別不平衡問題。
-    *   **系統性的超參數搜索 (Systematic Hyperparameter Search):** **(進行中)** 已在 `CNN_MultiLabel.py` 中導入 `KerasTuner`，以自動化、系統性地搜索 ResNet 架構的最佳配置，包括網路深度、濾波器數量、學習率等。
+    *   **架構對比實驗 (已完成):**
+        1.  **簡單 1D-CNN + 樣本加權**: 實現了一個基礎但高效的 1D-CNN 模型，在加入樣本加權處理類別不平衡後，取得了 **0.772** 的優異平均 ROC AUC。
+        2.  **1D-ResNet + 自動超參數搜索**: 為了探索更複雜的架構，我們將模型升級為 1D-ResNet，並使用 `KerasTuner` 進行了自動化的超參數搜索。
+    *   **實驗結論**: 出乎意料地，更複雜的 ResNet 架構在經過 `KerasTuner` 的搜索後，其最佳性能 (平均 ROC AUC ≈ 0.732) **反而不如**結構更簡單的 1D-CNN 模型。這可能是由於數據集規模、搜索空間限制等原因。
+    *   **最終策略**: 我們保留了兩個版本的腳本 (`scripts/CNN_MultiLabel.py` 和 `scripts/CNN_ResNet.py`)，並在 `main.py` 選單中提供選項，將表現更優的簡單 1D-CNN 標註為「較佳」。
 
 *   **Transformer 模型 (基於 Sequence - 自動學習全局關聯):**
     *   **超參數調優:** 調節注意力頭數量 (num_heads)、前饋網路維度 (ff_dim)、編碼器層數等。
