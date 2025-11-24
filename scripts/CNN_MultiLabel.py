@@ -138,6 +138,30 @@ cnn_model.summary()
 # --- 7. 模型編譯與訓練 ---
 print("\n開始訓練深度學習模型...")
 
+# 定義優化器、損失函數和評估指標
+cnn_model.compile(
+    optimizer=keras.optimizers.Adam(learning_rate=0.001),
+    loss='binary_crossentropy', # 多標籤分類使用 binary_crossentropy
+    metrics=[
+        keras.metrics.AUC(name='auc', multi_label=True),
+        keras.metrics.Precision(name='precision'),
+        keras.metrics.Recall(name='recall')
+    ]
+)
+
+callbacks = [
+    keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
+    keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.00001)
+]
+
+# 分割訓練集為訓練和驗證集 (用於 Early Stopping)
+X_train_cnn, X_val_cnn, y_train_cnn, y_val_cnn = train_test_split(
+    X_train_full, y_train_full,
+    test_size=0.2, # 20% 的訓練數據作為驗證集
+    random_state=42,
+    stratify=np.argmax(y_train_full, axis=1) if len(TARGET_COLS) > 1 else y_train_full # stratified split
+)
+
 # --- 處理類別不平衡：計算樣本權重 (Sample Weights) ---
 print("正在計算樣本權重以處理類別不平衡...")
 # 1. 首先，根據完整的訓練數據(y_train_full)計算每個目標的類別權重
