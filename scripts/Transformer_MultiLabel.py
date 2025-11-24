@@ -177,8 +177,8 @@ X_train_tf, X_val_tf, y_train_tf, y_val_tf = train_test_split(
     test_size=0.2, 
     random_state=42,
     stratify=np.argmax(y_train_full, axis=1) if len(TARGET_COLS) > 1 else y_train_full
-)
-
+    )
+    
     history = transformer_model.fit(
         X_train_tf, y_train_tf,
         epochs=TRAINING_PARAMS.get('epochs', 100),
@@ -186,7 +186,8 @@ X_train_tf, X_val_tf, y_train_tf, y_val_tf = train_test_split(
         validation_data=(X_val_tf, y_val_tf),
         callbacks=callbacks,
         verbose=1
-    )# --- 8. 模型評估與閾值微調 ---
+    )
+    # --- 8. 模型評估與閾值微調 ---
 print("\n正在評估模型並尋找最佳閾值...")
 y_pred_proba_val = transformer_model.predict(X_val_tf)
 optimal_thresholds = {}
