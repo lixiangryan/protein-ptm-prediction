@@ -95,6 +95,23 @@ exit
 
 ### 3.4. 參數設定 (Parameter Configuration)
 
+為了方便調整模型的訓練參數，專案根目錄下提供了一個 `config.yml` 檔案。
+
+```yaml
+# config.yml
+training:
+  epochs: 100
+  batch_size:
+    cnn: 128
+    transformer: 128
+  xgboost_search:
+    n_jobs: 1 # Number of parallel jobs for RandomizedSearchCV. Use -1 for all CPU cores (careful with GPU memory).
+```
+
+您可以直接修改此檔案中的數值，來調整訓練的週期 (`epochs`)、批次大小 (`batch_size`)，以及 XGBoost 超參數搜索的並行數 (`n_jobs`)，而無需更動任何 Python 程式碼。這對於在不同硬體上進行實驗或微調模型非常方便。
+
+### 3.4. 參數設定 (Parameter Configuration)
+
 為了方便調整深度學習模型（CNN, Transformer）的訓練參數，專案根目錄下提供了一個 `config.yml` 檔案。
 
 ```yaml
