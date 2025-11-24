@@ -186,7 +186,7 @@ history = cnn_model.fit(
     epochs=TRAINING_PARAMS.get('epochs', 100),
     batch_size=TRAINING_PARAMS.get('batch_size', {}).get('cnn', 128),
     validation_data=(X_val_cnn, y_val_cnn),
-    callbacks=callbacks,
+    callbacks=cb,
     verbose=1
 )
 
