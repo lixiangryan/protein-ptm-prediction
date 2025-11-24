@@ -228,9 +228,9 @@ graph LR
     Input --> EmbedModel[ESM-2 / 你的 Transformer]
 
     subgraph "Level 1: Base Models (專家群)"
-        FeatureEng --> XGB_Manual[XGBoost (手工特徵)]
-        EmbedModel --> Transformer[你的 Transformer]
-        EmbedModel --> XGB_Embed[XGBoost (Embeddings)]
+        FeatureEng --> XGB_Manual["XGBoost (手工特徵)"]
+        EmbedModel --> Transformer["你的 Transformer"]
+        EmbedModel --> XGB_Embed["XGBoost (Embeddings)"]
     end
 
     subgraph "Level 2: Meta Learner (整合者)"
