@@ -38,10 +38,10 @@ try:
     print("成功載入 config.yml 設定檔。")
 except FileNotFoundError:
     print("錯誤：找不到 config.yml 設定檔。將使用預設參數。")
-    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'cnn': 128}} # Fallback
+    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'cnn':32}} # Fallback
 except Exception as e:
     print(f"讀取 config.yml 時發生錯誤: {e}。將使用預設參數。")
-    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'cnn': 128}} # Fallback
+    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'cnn':32}} # Fallback
 
 
 # 設定資料路徑
@@ -182,7 +182,7 @@ print("樣本權重計算完成。")
 
 # --- 建立高效的 tf.data 管線 ---
 print("建立 tf.data 高效能管線...")
-batch_size_cnn = TRAINING_PARAMS.get('batch_size', {}).get('cnn', 128)
+batch_size_cnn = TRAINING_PARAMS.get('batch_size', {}).get('cnn',32)
 
 # 將樣本權重與特徵和目標打包
 train_dataset = tf.data.Dataset.from_tensor_slices((X_train_cnn, y_train_cnn, sample_weights))
