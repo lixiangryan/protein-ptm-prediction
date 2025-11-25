@@ -10,7 +10,8 @@ def main():
         '1': 'XGBoost_MultiLabel.py',
         '2': 'CNN_MultiLabel.py',
         '3': 'Transformer_MultiLabel.py',
-        '4': 'CNN_ResNet.py'
+        '4': 'CNN_ResNet.py',
+        '5': 'CNN_LSTM.py'
     }
 
     while True:
@@ -22,12 +23,13 @@ def main():
         print("  2: 運行 CNN 模型 (較佳)")
         print("  3: 運行 Transformer 模型")
         print("  4: 運行 CNN-ResNet 模型 (實驗性)")
+        print("  5: 運行 CNN-LSTM 模型 (實驗性)")
         print("---------------------------------------------")
         print("  c: 清理歷史紀錄 (Clean execution history)")
         print("  q: 退出 (Quit)")
         print("=============================================")
         
-        choice = input("請輸入您的選擇 (1/2/3/4/c/q): ").strip().lower()
+        choice = input("請輸入您的選擇 (1/2/3/4/5/c/q): ").strip().lower()
 
         if choice in scripts:
             script_name = scripts[choice]
