@@ -26,7 +26,7 @@ project_root = os.path.dirname(script_dir)
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-task_name = 'classify_multilabel_cnn'
+task_name = 'classify_multilabel_resnet'
 classify_data_filename = 'train_t1122classify.xlsx - Sheet1.csv'
 
 # 載入設定檔
@@ -38,10 +38,10 @@ try:
     print("成功載入 config.yml 設定檔。")
 except FileNotFoundError:
     print("錯誤：找不到 config.yml 設定檔。將使用預設參數。")
-    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'cnn': 128}} # Fallback
+    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'cnn': 32}} # Fallback
 except Exception as e:
     print(f"讀取 config.yml 時發生錯誤: {e}。將使用預設參數。")
-    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'cnn': 128}} # Fallback
+    TRAINING_PARAMS = {'epochs': 100, 'batch_size': {'cnn': 32}} # Fallback
 
 
 # 設定資料路徑
@@ -216,7 +216,7 @@ print("樣本權重計算完成。")
 
 # --- 建立高效的 tf.data 管線 ---
 print("建立 tf.data 高效能管線...")
-batch_size_cnn = TRAINING_PARAMS.get('batch_size', {}).get('cnn', 128)
+batch_size_cnn = TRAINING_PARAMS.get('batch_size', {}).get('cnn', 32)
 
 # 將樣本權重與特徵和目標打包
 # Note: KerasTuner's search method doesn't directly accept sample_weight with a tf.data.Dataset.
@@ -300,7 +300,7 @@ output_dir = os.path.join(project_root, "run", "results", task_name)
 os.makedirs(output_dir, exist_ok=True)
 
 timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-submission_filename = f"cnn_submission_{timestamp}.csv"
+submission_filename = f"resnet_submission_{timestamp}.csv"
 output_path = os.path.join(output_dir, submission_filename)
 
 submission_df = full_df_test[[ID_COL]].copy()
@@ -316,12 +316,12 @@ print(f"提交檔案 {output_path} 已建立。")
 # --- 10. 記錄分數 (簡化處理，僅記錄平均 ROC AUC) ---
 from util.scoreboard_manager import update_scoreboard
 
-scoreboard_file = os.path.join(project_root, "run", "scoreboard_cnn.csv")
+scoreboard_file = os.path.join(project_root, "run", "scoreboard_resnet.csv")
 score_label = "Average_ROC_AUC" 
 
 new_score_entry = pd.DataFrame([{
     "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    "Method": "1D-CNN",
+    "Method": "1D-ResNet",
     "Task": task_name,
     score_label: avg_roc_auc_val,
     "OutputFile": os.path.relpath(output_path, start=project_root)
